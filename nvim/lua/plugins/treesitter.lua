@@ -2,7 +2,6 @@ return {
 	{
 		"nvim-treesitter/nvim-treesitter",
 		dependencies = {
-			"nvim-treesitter/nvim-treesitter-textobjects",
 		},
 		branch = "master",
 		config = function()
@@ -14,12 +13,13 @@ return {
 					"typescript",
 					"html",
 					"css",
-					"lua",
-					"rust",
-					"jsdoc",
-					"bash",
-					"go",
-				},
+				"lua",
+				"rust",
+				"jsdoc",
+				"bash",
+				"go",
+				"python",
+			},
 
 				-- Install parsers synchronously (only applied to `ensure_installed`)
 				sync_install = false,
@@ -31,7 +31,6 @@ return {
 				indent = {
 					enable = true,
 				},
-
 				highlight = {
 					-- `false` will disable the whole extension
 					enable = true,
@@ -71,6 +70,45 @@ return {
 			}
 
 			vim.treesitter.language.register("templ", "templ")
+		end,
+	},
+	{
+		"nvim-treesitter/nvim-treesitter-textobjects",
+		branch = "main",
+		config = function()
+			require("nvim-treesitter-textobjects").setup({
+				select = {
+					lookahead = true,
+					selection_modes = {
+						["@function.outer"] = "V",
+						["@class.outer"] = "V",
+					},
+				},
+			})
+
+			vim.keymap.set({ "x", "o" }, "af", function()
+				require("nvim-treesitter-textobjects.select").select_textobject("@function.outer", "textobjects")
+			end, { desc = "Select around function" })
+
+			vim.keymap.set({ "x", "o" }, "if", function()
+				require("nvim-treesitter-textobjects.select").select_textobject("@function.inner", "textobjects")
+			end, { desc = "Select inside function" })
+
+			vim.keymap.set({ "x", "o" }, "ac", function()
+				require("nvim-treesitter-textobjects.select").select_textobject("@class.outer", "textobjects")
+			end, { desc = "Select around class" })
+
+			vim.keymap.set({ "x", "o" }, "ic", function()
+				require("nvim-treesitter-textobjects.select").select_textobject("@class.inner", "textobjects")
+			end, { desc = "Select inside class" })
+
+			vim.keymap.set({ "x", "o" }, "am", function()
+				require("nvim-treesitter-textobjects.select").select_textobject("@function.outer", "textobjects")
+			end, { desc = "Select around method" })
+
+			vim.keymap.set({ "x", "o" }, "im", function()
+				require("nvim-treesitter-textobjects.select").select_textobject("@function.inner", "textobjects")
+			end, { desc = "Select inside method" })
 		end,
 	},
 

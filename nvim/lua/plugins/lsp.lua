@@ -17,18 +17,21 @@ return {
 	config = function()
 		vim.api.nvim_create_autocmd("LspAttach", {
 			callback = function(args)
-				local opts = { buffer = args.buf, remap = false, silent = true }
-				vim.keymap.set("n", "gd", vim.lsp.buf.definition, opts)
-				vim.keymap.set("n", "gD", vim.lsp.buf.declaration, opts)
-				vim.keymap.set("n", "gr", vim.lsp.buf.references, opts)
-				vim.keymap.set("n", "gi", vim.lsp.buf.implementation, opts)
-				vim.keymap.set("n", "K", vim.lsp.buf.hover, opts)
-				vim.keymap.set("n", "<leader>rn", vim.lsp.buf.rename, opts)
-				vim.keymap.set("n", "<leader>ca", vim.lsp.buf.code_action, opts)
-				vim.keymap.set("n", "[d", vim.diagnostic.goto_prev, opts)
-				vim.keymap.set("n", "]d", vim.diagnostic.goto_next, opts)
-				vim.keymap.set("n", "<leader>e", vim.diagnostic.open_float, opts)
-				vim.keymap.set("n", "<S-Space>", vim.diagnostic.open_float, opts)
+				local function map(keys, fn, desc)
+					vim.keymap.set("n", keys, fn, { buffer = args.buf, remap = false, silent = true, desc = desc })
+				end
+
+				map("gd", vim.lsp.buf.definition, "LSP goto definition")
+				map("gD", vim.lsp.buf.declaration, "LSP goto declaration")
+				map("gr", vim.lsp.buf.references, "LSP references")
+				map("gi", vim.lsp.buf.implementation, "LSP goto implementation")
+				map("K", vim.lsp.buf.hover, "LSP hover")
+				map("<leader>rn", vim.lsp.buf.rename, "LSP rename")
+				map("<leader>ca", vim.lsp.buf.code_action, "LSP code action")
+				map("[d", vim.diagnostic.goto_prev, "Diagnostic previous")
+				map("]d", vim.diagnostic.goto_next, "Diagnostic next")
+				map("<leader>e", vim.diagnostic.open_float, "Line diagnostics")
+				map("<S-Space>", vim.diagnostic.open_float, "Line diagnostics")
 			end,
 		})
 
