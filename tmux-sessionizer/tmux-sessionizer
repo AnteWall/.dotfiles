@@ -212,6 +212,26 @@ sanity_check
 # if TS_SEARCH_PATHS is not set use default
 [[ -n "$TS_SEARCH_PATHS" ]] || TS_SEARCH_PATHS=(~/ ~/personal ~/personal/dev/env/.config)
 
+# Prune noisy directories while searching for projects.
+# You can override this from tmux-sessionizer.conf by defining TS_PRUNE_NAMES.
+[[ ${#TS_PRUNE_NAMES[@]} -gt 0 ]] || TS_PRUNE_NAMES=(
+    .git
+    .svn
+    .hg
+    node_modules
+    .venv
+    venv
+    .mypy_cache
+    .pytest_cache
+    __pycache__
+    .next
+    .nuxt
+    .turbo
+    dist
+    build
+    target
+)
+
 # Add any extra search paths to the TS_SEARCH_PATHS array
 # e.g : EXTRA_SEARCH_PATHS=("$HOME/extra1:4" "$HOME/extra2")
 # note : Path can be suffixed with :number to limit or extend the depth of the search for the Path
@@ -221,18 +241,7 @@ if [[ ${#TS_EXTRA_SEARCH_PATHS[@]} -gt 0 ]]; then
 fi
 
 # utility function to find directories
-find_dirs() {
-    # list TMUX sessions
-    if [[ -n "${TMUX}" ]]; then
-        current_session=$(tmux display-message -p '#S')
-        tmux list-sessions -F "[TMUX] #{session_name}" 2>/dev/null | grep -vFx "[TMUX] $current_session"
-    else
-        tmux list-sessions -F "[TMUX] #{session_name}" 2>/dev/null
-    fi
-
-    # note: TS_SEARCH_PATHS is an array of paths to search for directories
-    # if the path ends with :number, it will search for directories with a max depth of number ;)
-    # if there is no number, it will search for directories with a max depth defined by TS_MAX_DEPTH or 1 if not set
+emit_search_dirs() {
     for entry in "${TS_SEARCH_PATHS[@]}"; do
         # Check if entry as :number as suffix then adapt the maxdepth parameter
         if [[ "$entry" =~ ^([^:]+):([0-9]+)$ ]]; then
@@ -240,10 +249,71 @@ find_dirs() {
             depth="${BASH_REMATCH[2]}"
         else
             path="$entry"
+            depth=""
         fi
 
-        [[ -d "$path" ]] && find "$path" -mindepth 1 -maxdepth "${depth:-${TS_MAX_DEPTH:-1}}" -path '*/.git' -prune -o -type d -print
+        if [[ -d "$path" ]]; then
+            find_cmd=(find "$path" -mindepth 1 -maxdepth "${depth:-${TS_MAX_DEPTH:-1}}" \()
+            find_cmd+=(-name '.*')
+            for prune_name in "${TS_PRUNE_NAMES[@]}"; do
+                find_cmd+=(-o -name "$prune_name")
+            done
+            find_cmd+=(\) -prune -o -type d -print)
+            "${find_cmd[@]}"
+        fi
     done
+}
+
+emit_git_roots() {
+    for entry in "${TS_SEARCH_PATHS[@]}"; do
+        if [[ "$entry" =~ ^([^:]+):([0-9]+)$ ]]; then
+            path="${BASH_REMATCH[1]}"
+            depth="${BASH_REMATCH[2]}"
+        else
+            path="$entry"
+            depth="${TS_MAX_DEPTH:-1}"
+        fi
+
+        if [[ -d "$path" ]]; then
+            # Repos at depth N have .git at depth N+1 from search root.
+            git_depth=$((depth + 1))
+            find "$path" -mindepth 2 -maxdepth "$git_depth" -name .git -print 2>/dev/null |
+                while IFS= read -r gitdir; do
+                    dirname "$gitdir"
+                done
+        fi
+    done
+}
+
+find_dirs() {
+    # list TMUX sessions
+    if [[ -n "${TMUX}" ]]; then
+        current_session=$(tmux display-message -p '#S')
+        tmux list-sessions -F "#{session_name}|#{window_index}:#{window_name}" 2>/dev/null |
+            while IFS='|' read -r session window; do
+                [[ "$session" == "$current_session" ]] && continue
+                printf '[TMUX] %s | %s\n' "$session" "$window"
+            done
+    else
+        tmux list-sessions -F "#{session_name}|#{window_index}:#{window_name}" 2>/dev/null |
+            while IFS='|' read -r session window; do
+                printf '[TMUX] %s | %s\n' "$session" "$window"
+            done
+    fi
+
+    all_dirs=$(emit_search_dirs | awk 'NF && !seen[$0]++')
+    git_roots=$(emit_git_roots | awk 'NF && !seen[$0]++')
+
+    awk '
+        NR == FNR {
+            if ($0 != "") {
+                is_git[$0] = 1
+                if (!printed[$0]++) print $0
+            }
+            next
+        }
+        $0 != "" && !is_git[$0] && !printed[$0]++ { print $0 }
+    ' <(printf '%s\n' "$git_roots") <(printf '%s\n' "$all_dirs")
 }
 
 handle_session_cmd() {
@@ -325,7 +395,9 @@ if [[ -z $selected ]]; then
     exit 0
 fi
 
-if [[ "$selected" =~ ^\[TMUX\]\ (.+)$ ]]; then
+if [[ "$selected" =~ ^\[TMUX\]\ (.+)\ \|\ .+$ ]]; then
+    selected="${BASH_REMATCH[1]}"
+elif [[ "$selected" =~ ^\[TMUX\]\ (.+)$ ]]; then
     selected="${BASH_REMATCH[1]}"
 fi
 

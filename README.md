@@ -7,6 +7,7 @@ This repo stores personal config files (currently Neovim and tmux).
 ```bash
 git clone <your-repo-url> ~/.dotfiles
 cd ~/.dotfiles
+./setup.sh
 ```
 
 ## Prerequisites (Homebrew)
@@ -34,29 +35,13 @@ alias nvim='XDG_CONFIG_HOME="$HOME/.dotfiles" nvim'
 
 ## tmux: use config from this repo
 
-tmux config is in:
+`./setup.sh` links these files:
 
 ```text
-~/.dotfiles/tmux/tmux.conf
-```
-
-Option 1: start tmux with this config directly:
-
-```bash
-tmux -f "$HOME/.dotfiles/tmux/tmux.conf"
-```
-
-Optional alias:
-
-```bash
-alias tmux='tmux -f "$HOME/.dotfiles/tmux/tmux.conf"'
-```
-
-Option 2: use tmux's config path under `~/.config`:
-
-```bash
-mkdir -p "$HOME/.config"
-ln -s "$HOME/.dotfiles/tmux" "$HOME/.config/tmux"
+~/.tmux.conf -> ~/.dotfiles/tmux/tmux.conf
+~/.tmux.conf.local -> ~/.dotfiles/tmux/tmux.conf.local
+~/.config/tmux/tmux.conf -> ~/.dotfiles/tmux/tmux.conf
+~/.config/tmux/tmux.conf.local -> ~/.dotfiles/tmux/tmux.conf.local
 ```
 
 Then start tmux normally:
@@ -71,10 +56,16 @@ This repo vendors [ThePrimeagen/tmux-sessionizer](https://github.com/ThePrimeage
 as a local copy at:
 
 ```text
-~/.dotfiles/tmux/tmux-sessionizer
+~/.dotfiles/tmux-sessionizer/tmux-sessionizer
 ```
 
-The tmux config binds `prefix + f` to launch sessionizer using this local script path.
+`./setup.sh` also links:
+
+```text
+~/.config/tmux-sessionizer/tmux-sessionizer.conf -> ~/.dotfiles/tmux-sessionizer/tmux-sessionizer.conf
+```
+
+The tmux config binds `prefix + f` (`Ctrl-b f`) to launch sessionizer using this local script path.
 After edits, reload tmux config with:
 
 ```bash

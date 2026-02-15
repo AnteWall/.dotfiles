@@ -15,6 +15,23 @@ return {
 	},
 
 	config = function()
+		vim.api.nvim_create_autocmd("LspAttach", {
+			callback = function(args)
+				local opts = { buffer = args.buf, remap = false, silent = true }
+				vim.keymap.set("n", "gd", vim.lsp.buf.definition, opts)
+				vim.keymap.set("n", "gD", vim.lsp.buf.declaration, opts)
+				vim.keymap.set("n", "gr", vim.lsp.buf.references, opts)
+				vim.keymap.set("n", "gi", vim.lsp.buf.implementation, opts)
+				vim.keymap.set("n", "K", vim.lsp.buf.hover, opts)
+				vim.keymap.set("n", "<leader>rn", vim.lsp.buf.rename, opts)
+				vim.keymap.set("n", "<leader>ca", vim.lsp.buf.code_action, opts)
+				vim.keymap.set("n", "[d", vim.diagnostic.goto_prev, opts)
+				vim.keymap.set("n", "]d", vim.diagnostic.goto_next, opts)
+				vim.keymap.set("n", "<leader>e", vim.diagnostic.open_float, opts)
+				vim.keymap.set("n", "<S-Space>", vim.diagnostic.open_float, opts)
+			end,
+		})
+
 		local cmp = require("cmp")
 		local cmp_lsp = require("cmp_nvim_lsp")
 		local capabilities = vim.tbl_deep_extend(
@@ -32,6 +49,7 @@ return {
 				"rust_analyzer",
 				"gopls",
 				"vtsls",
+				"pyright",
 				"tailwindcss",
 			},
 			handlers = {
@@ -102,6 +120,43 @@ return {
 							"svelte",
 							"heex",
 						},
+					})
+				end,
+				["vtsls"] = function()
+					local lspconfig = require("lspconfig")
+					local util = require("lspconfig.util")
+					lspconfig.vtsls.setup({
+						capabilities = capabilities,
+						cmd = { vim.fn.stdpath("data") .. "/mason/bin/vtsls", "--stdio" },
+						root_dir = util.root_pattern("tsconfig.json", "jsconfig.json", "package.json", ".git"),
+						single_file_support = true,
+						settings = {
+							vtsls = {
+								autoUseWorkspaceTsdk = true,
+							},
+							typescript = {
+								tsdk = "node_modules/typescript/lib",
+							},
+							javascript = {
+								tsdk = "node_modules/typescript/lib",
+							},
+						},
+					})
+				end,
+				["pyright"] = function()
+					local lspconfig = require("lspconfig")
+					local util = require("lspconfig.util")
+					lspconfig.pyright.setup({
+						capabilities = capabilities,
+						cmd = { vim.fn.stdpath("data") .. "/mason/bin/pyright-langserver", "--stdio" },
+						root_dir = util.root_pattern(
+							"pyproject.toml",
+							"setup.py",
+							"setup.cfg",
+							"requirements.txt",
+							".git"
+						),
+						single_file_support = true,
 					})
 				end,
 			},
