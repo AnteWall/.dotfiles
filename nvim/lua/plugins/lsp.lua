@@ -52,7 +52,7 @@ return {
 				"pyright",
 				"tailwindcss",
 			},
-			handlers = {
+				handlers = {
 				function(server_name) -- default handler (optional)
 					require("lspconfig")[server_name].setup({
 						capabilities = capabilities,
@@ -143,23 +143,72 @@ return {
 						},
 					})
 				end,
-				["pyright"] = function()
-					local lspconfig = require("lspconfig")
-					local util = require("lspconfig.util")
-					lspconfig.pyright.setup({
-						capabilities = capabilities,
-						cmd = { vim.fn.stdpath("data") .. "/mason/bin/pyright-langserver", "--stdio" },
-						root_dir = util.root_pattern(
-							"pyproject.toml",
-							"setup.py",
-							"setup.cfg",
-							"requirements.txt",
-							".git"
-						),
-						single_file_support = true,
-					})
-				end,
-			},
+					["pyright"] = function()
+						local lspconfig = require("lspconfig")
+						local util = require("lspconfig.util")
+						local function find_python_path(start_path)
+							local venv_dir = vim.fs.find(".venv", { path = start_path, upward = true, type = "directory" })[1]
+							if venv_dir then
+								local venv_python = venv_dir .. "/bin/python"
+								if vim.fn.executable(venv_python) == 1 then
+									return venv_python
+								end
+							end
+
+							local python3 = vim.fn.exepath("python3")
+							if python3 ~= "" then
+								return python3
+							end
+
+							local python = vim.fn.exepath("python")
+							if python ~= "" then
+								return python
+							end
+
+							return "python3"
+						end
+
+						lspconfig.pyright.setup({
+							capabilities = capabilities,
+							cmd = { vim.fn.stdpath("data") .. "/mason/bin/pyright-langserver", "--stdio" },
+							root_dir = function(fname)
+								return util.root_pattern(
+									"pyproject.toml",
+									"uv.lock",
+									".venv",
+									"setup.py",
+									"setup.cfg",
+									"requirements.txt"
+								)(fname) or util.path.dirname(fname)
+							end,
+							on_new_config = function(new_config, root_dir)
+								local python_path = find_python_path(root_dir)
+								new_config.settings = vim.tbl_deep_extend("force", new_config.settings or {}, {
+									python = {
+										pythonPath = python_path,
+										analysis = {
+											autoSearchPaths = true,
+											useLibraryCodeForTypes = true,
+											diagnosticMode = "workspace",
+										},
+									},
+								})
+							end,
+							single_file_support = true,
+						})
+					end,
+				},
+			})
+
+		vim.api.nvim_create_autocmd("BufEnter", {
+			pattern = "*.py",
+			callback = function(args)
+				local file_dir = vim.fn.fnamemodify(args.file, ":p:h")
+				local venv = vim.fs.find(".venv", { path = file_dir, upward = true, type = "directory" })[1]
+				if venv then
+					require("uv").activate_venv(venv)
+				end
+			end,
 		})
 
 		local cmp_select = { behavior = cmp.SelectBehavior.Select }
